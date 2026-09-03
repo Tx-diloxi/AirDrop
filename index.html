@@ -2,7 +2,11 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="theme-color" content="#f5f5f7" />
 <title>AirShare — Partage à proximité</title>
 
 <!-- ApiRTC SDK — CDN + cloud corrects, alignés sur l'exemple officiel
@@ -49,9 +53,14 @@
     max-width:520px;
     margin:0 auto;
     min-height:100vh;
+    min-height:100dvh; /* évite le saut de hauteur quand le clavier mobile s'ouvre */
     display:flex;
     flex-direction:column;
-    padding:env(safe-area-inset-top) 20px env(safe-area-inset-bottom);
+    padding:calc(env(safe-area-inset-top) + 4px) 16px calc(env(safe-area-inset-bottom) + 12px);
+  }
+
+  @media (min-width:480px){
+    .app{ padding-left:20px; padding-right:20px; }
   }
 
   /* ---------- Header ---------- */
@@ -99,7 +108,8 @@
   .my-id-row{
     display:flex;
     align-items:center;
-    gap:12px;
+    gap:10px;
+    flex-wrap:wrap;
   }
   .my-id-avatar{
     width:44px;height:44px;border-radius:50%;
@@ -115,36 +125,54 @@
     font-size:17px; font-weight:600;
     font-variant-numeric:tabular-nums;
     letter-spacing:.01em;
+    word-break:break-all;
   }
   .copy-btn{
     border:none; background:rgba(0,113,227,.1); color:var(--blue);
-    border-radius:980px; padding:8px 14px; font-size:13px; font-weight:600;
+    border-radius:980px; padding:10px 14px; font-size:13px; font-weight:600;
     cursor:pointer; flex-shrink:0; font-family:inherit;
+    min-height:40px; touch-action:manipulation;
   }
   .copy-btn:active{ transform:scale(.95); }
 
   .divider{ height:1px; background:var(--hair); margin:14px -18px; }
 
-  .field-row{ display:flex; align-items:center; gap:12px; }
-  .field-row label{ font-size:13px; color:var(--ink-1); flex-shrink:0; }
+  .field-row{
+    display:flex; align-items:center; gap:10px;
+    flex-wrap:wrap;
+  }
+  .field-row label{ font-size:13px; color:var(--ink-1); flex-shrink:0; width:100%; }
+  .field-row .input-group{
+    display:flex; align-items:center; gap:8px;
+    flex:1 1 100%;
+  }
   .field-row input{
-    flex:1; border:none; background:rgba(0,0,0,.035);
-    border-radius:10px; padding:9px 12px;
-    font-size:15px; font-weight:500; color:var(--ink-0);
+    flex:1; min-width:0; border:none; background:rgba(0,0,0,.035);
+    border-radius:10px; padding:11px 12px;
+    /* 16px minimum empêche Safari iOS de zoomer automatiquement au focus */
+    font-size:16px; font-weight:500; color:var(--ink-0);
     outline:none; font-family:inherit;
+    min-height:44px;
   }
   .field-row input:focus{ outline:2px solid var(--blue); outline-offset:1px; }
 
   .btn{
     appearance:none; border:none; border-radius:980px;
-    padding:9px 18px; font-size:14px; font-weight:600; font-family:inherit;
+    padding:11px 18px; font-size:14px; font-weight:600; font-family:inherit;
     cursor:pointer; transition:transform .12s ease, opacity .12s ease, background .2s ease;
     flex-shrink:0;
+    min-height:44px; /* cible tactile Apple HIG / WCAG */
+    touch-action:manipulation;
   }
   .btn:active{ transform:scale(.96); }
   .btn:disabled{ opacity:.4; cursor:default; }
   .btn-primary{ background:var(--blue); color:#fff; }
   .btn-primary:hover:not(:disabled){ background:var(--blue-ink); }
+  .btn-icon-only{
+    width:44px; height:44px; padding:0;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.05); color:var(--ink-0); font-size:15px;
+  }
 
   /* ---------- Nearby contacts ---------- */
   .section-title{
@@ -153,10 +181,12 @@
   }
   .contact-list{ display:flex; flex-direction:column; gap:8px; }
   .contact-row{
-    display:flex; align-items:center; gap:12px;
+    display:flex; align-items:center; gap:10px;
     background:var(--bg-1); border-radius:var(--radius-sm);
-    box-shadow:var(--shadow-1); padding:11px 14px;
+    box-shadow:var(--shadow-1); padding:10px 12px;
+    flex-wrap:wrap;
   }
+  .contact-row .send-btn{ padding:10px 16px; font-size:13px; }
   .contact-avatar{
     width:38px;height:38px;border-radius:50%;
     background:var(--glass); backdrop-filter:blur(20px);
@@ -183,10 +213,13 @@
     border-radius:var(--radius-md);
     border:1.5px dashed var(--hair);
     background:rgba(255,255,255,.5);
-    padding:22px 16px; text-align:center; cursor:pointer;
+    padding:26px 16px; text-align:center; cursor:pointer;
     transition:border-color .18s ease, background .18s ease;
     margin:18px 0 6px;
+    touch-action:manipulation;
+    min-height:44px;
   }
+  .dropzone:focus-visible{ outline:2px solid var(--blue); outline-offset:2px; }
   .dropzone.drag{ border-color:var(--blue); background:rgba(0,113,227,.06); }
   .dropzone .glyph{
     width:40px;height:40px; margin:0 auto 10px; border-radius:50%;
@@ -223,14 +256,18 @@
     width:100%; max-width:520px;
     background:var(--bg-1);
     border-radius:24px 24px 0 0;
-    padding:10px 20px calc(20px + env(safe-area-inset-bottom));
+    padding:10px 16px calc(20px + env(safe-area-inset-bottom));
     transform:translateY(100%);
     transition:transform .32s cubic-bezier(.2,.9,.25,1);
     box-shadow:var(--shadow-2);
-    max-height:70vh; overflow-y:auto;
+    max-height:75vh; max-height:75dvh; overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
   }
   .sheet-backdrop.open .sheet{ transform:translateY(0); }
-  .sheet-handle{ width:36px;height:5px;border-radius:3px; background:var(--hair); margin:6px auto 14px; }
+  .sheet-handle{
+    width:36px;height:5px;border-radius:3px; background:var(--hair);
+    margin:8px auto; padding:8px 0; background-clip:content-box;
+  }
 
   .transfer-row{ display:flex; align-items:center; gap:14px; padding:12px 0; }
   .transfer-row + .transfer-row{ border-top:1px solid var(--hair); }
@@ -250,9 +287,10 @@
 
   .accept-actions{ display:flex; gap:8px; }
   .icon-btn{
-    width:34px;height:34px;border-radius:50%;
+    width:44px;height:44px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;
-    border:none; cursor:pointer; font-size:14px;
+    border:none; cursor:pointer; font-size:15px;
+    touch-action:manipulation; flex-shrink:0;
   }
   .icon-btn.accept{ background:var(--green); color:#fff; }
   .icon-btn.decline{ background:rgba(0,0,0,.06); color:var(--ink-1); }
@@ -263,20 +301,35 @@
 
   /* ---------- Toast ---------- */
   .toast{
-    position:fixed; left:50%; bottom:28px;
+    position:fixed; left:50%;
+    bottom:calc(env(safe-area-inset-bottom) + 20px);
     transform:translate(-50%, 20px);
     background:rgba(29,29,31,.92); color:#fff;
-    padding:11px 18px; border-radius:980px;
+    padding:11px 18px; border-radius:20px;
     font-size:13.5px; font-weight:500; opacity:0;
     transition:opacity .25s ease, transform .25s ease;
-    pointer-events:none; z-index:60; white-space:nowrap;
-    max-width:90vw; overflow:hidden; text-overflow:ellipsis;
+    pointer-events:none; z-index:60;
+    max-width:min(90vw, 380px); text-align:center;
+    overflow:hidden; text-overflow:ellipsis;
   }
   .toast.show{ opacity:1; transform:translate(-50%,0); }
 
   footer{ text-align:center; padding:18px 0 10px; font-size:11.5px; color:var(--ink-2); }
 
   ::selection{ background:rgba(0,113,227,.2); }
+
+  /* Sur écran tactile, un :hover reste "collé" après un tap : on le désactive
+     et on garde uniquement le retour visuel :active défini plus haut. */
+  @media (hover:none){
+    .btn-primary:hover{ background:var(--blue); }
+    .copy-btn:hover{ background:rgba(0,113,227,.1); }
+  }
+
+  @media (max-width:360px){
+    header h1{ font-size:20px; }
+    .card{ padding:14px; }
+    .dropzone{ padding:20px 12px; }
+  }
 </style>
 </head>
 <body>
@@ -301,8 +354,11 @@
     <div class="divider"></div>
     <div class="field-row">
       <label for="peerIdInput">Envoyer à</label>
-      <input id="peerIdInput" type="text" placeholder="Identifiant du destinataire" autocomplete="off" />
-      <button class="btn btn-primary" id="addPeerBtn">Ajouter</button>
+      <div class="input-group">
+        <input id="peerIdInput" type="text" inputmode="text" placeholder="Identifiant du destinataire" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+        <button class="btn btn-icon-only" id="pasteIdBtn" title="Coller" aria-label="Coller">📋</button>
+        <button class="btn btn-primary" id="addPeerBtn">Ajouter</button>
+      </div>
     </div>
   </div>
 
@@ -315,10 +371,10 @@
   </div>
 
   <!-- Drop zone -->
-  <div class="dropzone" id="dropzone">
+  <div class="dropzone" id="dropzone" role="button" tabindex="0">
     <div class="glyph">⇪</div>
     <div class="title">Choisir un fichier à envoyer</div>
-    <div class="sub">Glissez-le ici, ou touchez pour parcourir</div>
+    <div class="sub" id="dropzoneSub">Touchez pour parcourir vos fichiers</div>
     <input type="file" id="fileInput" />
   </div>
   <div class="selected-file" id="selectedFile">
@@ -463,6 +519,19 @@
     if (e.key === 'Enter'){ addPeerBtn.click(); }
   });
 
+  const pasteIdBtn = el('pasteIdBtn');
+  pasteIdBtn.addEventListener('click', async () => {
+    try{
+      const text = await navigator.clipboard.readText();
+      if (text) { peerIdInput.value = text.trim(); peerIdInput.focus(); }
+    }catch(e){
+      // Lecture du presse-papiers refusée par le navigateur (courant sur mobile) :
+      // on redonne simplement le focus pour un collage manuel (appui long → Coller)
+      peerIdInput.focus();
+      toast('Collez manuellement (appui long dans le champ)');
+    }
+  });
+
   copyIdBtn.addEventListener('click', () => {
     const id = myIdEl.textContent;
     if (!id || id === '—') return;
@@ -495,7 +564,17 @@
   // =========================================================
   // File selection
   // =========================================================
+  // Le drag & drop de fichiers n'existe pas sur mobile : on adapte le texte
+  // d'invite selon que l'appareil supporte un pointeur fin (souris) ou non.
+  const supportsDragDrop = window.matchMedia('(pointer: fine)').matches;
+  if (supportsDragDrop){
+    el('dropzoneSub').textContent = 'Glissez-le ici, ou touchez pour parcourir';
+  }
+
   dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); fileInput.click(); }
+  });
   ['dragenter','dragover'].forEach(evt =>
     dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
   ['dragleave','drop'].forEach(evt =>
