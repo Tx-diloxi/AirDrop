@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>AirShare — Partage à proximité</title>
+
+<!-- ApiRTC SDK -->
+<script src="https://cloud.apirtc.com/apiRTC/apiRTC-latest.min.js"></script>
+
+<style>
+  :root{
+    --bg-0:#f5f5f7;
+    --bg-1:#ffffff;
+    --ink-0:#1d1d1f;
+    --ink-1:#6e6e73;
+    --ink-2:#a1a1a6;
+    --blue:#0071e3;
+    --blue-ink:#0059b3;
+    --green:#30d158;
+    --red:#ff3b30;
+    --hair:rgba(0,0,0,.08);
+    --glass: rgba(255,255,255,.72);
+    --radius-lg:28px;
+    --radius-md:18px;
+    --radius-sm:12px;
+    --shadow-1: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+    --shadow-2: 0 20px 60px rgba(0,0,0,.16);
+    font-synthesis: none;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+      "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #eef4ff 0%, transparent 60%),
+      radial-gradient(1000px 500px at 110% 10%, #f2eefc 0%, transparent 55%),
+      var(--bg-0);
+    color:var(--ink-0);
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+
+  .app{
+    max-width:520px;
+    margin:0 auto;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    padding:env(safe-area-inset-top) 20px env(safe-area-inset-bottom);
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    padding:28px 4px 8px;
+    text-align:center;
+  }
+  header h1{
+    font-size:22px;
+    font-weight:600;
+    letter-spacing:-0.02em;
+    margin:0 0 2px;
+  }
+  header p{
+    margin:0;
+    font-size:13px;
+    color:var(--ink-1);
+  }
+  .status-dot{
+    display:inline-block;
+    width:7px;height:7px;
+    border-radius:50%;
+    margin-right:6px;
+    background:var(--ink-2);
+    transition:background .3s ease, box-shadow .3s ease;
+    vertical-align:1px;
+  }
+  .status-dot.online{
+    background:var(--green);
+    box-shadow:0 0 0 4px rgba(48,209,88,.15);
+  }
+
+  /* ---------- Radar / discovery stage ---------- */
+  .stage{
+    position:relative;
+    width:100%;
+    aspect-ratio:1/1;
+    max-height:340px;
+    margin:12px auto 4px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .radar-ring{
+    position:absolute;
+    border-radius:50%;
+    border:1px solid var(--hair);
+  }
+  .radar-ring.r1{ width:34%; height:34%; }
+  .radar-ring.r2{ width:62%; height:62%; }
+  .radar-ring.r3{ width:90%; height:90%; }
+
+  .pulse{
+    position:absolute;
+    width:34%;
+    height:34%;
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(0,113,227,.20), rgba(0,113,227,0) 70%);
+    animation:pulse 2.6s ease-out infinite;
+  }
+  @keyframes pulse{
+    0%{ transform:scale(1); opacity:.9; }
+    100%{ transform:scale(2.6); opacity:0; }
+  }
+  .stage.idle .pulse{ animation-play-state:paused; opacity:0; }
+
+  .me-avatar{
+    position:relative;
+    width:23%;
+    height:23%;
+    border-radius:50%;
+    background:linear-gradient(145deg,#3b9dff,var(--blue));
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#fff;
+    font-weight:600;
+    font-size:15px;
+    box-shadow:0 8px 20px rgba(0,113,227,.35);
+    z-index:2;
+  }
+
+  .peer-chip{
+    position:absolute;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    cursor:pointer;
+    background:none;
+    border:none;
+    padding:0;
+    font:inherit;
+    color:inherit;
+    animation:appear .35s cubic-bezier(.2,.8,.2,1) both;
+  }
+  @keyframes appear{
+    from{ opacity:0; transform:scale(.6); }
+    to{ opacity:1; transform:scale(1); }
+  }
+  .peer-chip .bubble{
+    width:52px;height:52px;
+    border-radius:50%;
+    background:var(--glass);
+    backdrop-filter:blur(20px) saturate(160%);
+    border:1px solid rgba(255,255,255,.6);
+    box-shadow:var(--shadow-1);
+    display:flex;align-items:center;justify-content:center;
+    font-size:19px;
+    transition:transform .18s ease;
+  }
+  .peer-chip:active .bubble{ transform:scale(.92); }
+  .peer-chip .label{
+    font-size:11.5px;
+    font-weight:500;
+    color:var(--ink-1);
+    max-width:74px;
+    text-align:center;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .empty-hint{
+    position:absolute;
+    bottom:-6px;
+    font-size:12.5px;
+    color:var(--ink-2);
+    text-align:center;
+    width:80%;
+  }
+
+  /* ---------- Identity card ---------- */
+  .card{
+    background:var(--bg-1);
+    border-radius:var(--radius-md);
+    box-shadow:var(--shadow-1);
+    padding:16px 18px;
+    margin:8px 0;
+  }
+  .field-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .field-row label{
+    font-size:13px;
+    color:var(--ink-1);
+    flex-shrink:0;
+    width:78px;
+  }
+  .field-row input{
+    flex:1;
+    border:none;
+    background:transparent;
+    font-size:15px;
+    font-weight:500;
+    color:var(--ink-0);
+    outline:none;
+    text-align:right;
+    font-family:inherit;
+  }
+  .divider{ height:1px; background:var(--hair); margin:12px -18px; }
+
+  .room-row{ display:flex; align-items:center; gap:12px; }
+  .room-row .field-row{ flex:1; }
+
+  .btn{
+    appearance:none;
+    border:none;
+    border-radius:980px;
+    padding:9px 18px;
+    font-size:14px;
+    font-weight:600;
+    font-family:inherit;
+    cursor:pointer;
+    transition:transform .12s ease, opacity .12s ease, background .2s ease;
+  }
+  .btn:active{ transform:scale(.96); }
+  .btn:disabled{ opacity:.4; cursor:default; }
+  .btn-primary{ background:var(--blue); color:#fff; }
+  .btn-primary:hover:not(:disabled){ background:var(--blue-ink); }
+  .btn-ghost{ background:rgba(0,0,0,.05); color:var(--ink-0); }
+  .btn-ghost:hover{ background:rgba(0,0,0,.08); }
+  .btn-block{ width:100%; }
+  .btn-danger{ background:rgba(255,59,48,.1); color:var(--red); }
+
+  /* ---------- Drop zone ---------- */
+  .dropzone{
+    border-radius:var(--radius-md);
+    border:1.5px dashed var(--hair);
+    background:rgba(255,255,255,.5);
+    padding:22px 16px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .18s ease, background .18s ease;
+    margin:6px 0 14px;
+  }
+  .dropzone.drag{
+    border-color:var(--blue);
+    background:rgba(0,113,227,.06);
+  }
+  .dropzone .glyph{
+    width:40px;height:40px;
+    margin:0 auto 10px;
+    border-radius:50%;
+    background:rgba(0,113,227,.1);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--blue);
+    font-size:18px;
+  }
+  .dropzone .title{ font-size:14.5px; font-weight:600; margin-bottom:2px; }
+  .dropzone .sub{ font-size:12.5px; color:var(--ink-1); }
+  input[type=file]{ display:none; }
+
+  /* ---------- Transfer sheet ---------- */
+  .sheet-backdrop{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.28);
+    backdrop-filter:blur(2px);
+    display:flex; align-items:flex-end; justify-content:center;
+    opacity:0; pointer-events:none;
+    transition:opacity .25s ease;
+    z-index:50;
+  }
+  .sheet-backdrop.open{ opacity:1; pointer-events:auto; }
+  .sheet{
+    width:100%; max-width:520px;
+    background:var(--bg-1);
+    border-radius:24px 24px 0 0;
+    padding:10px 20px calc(20px + env(safe-area-inset-bottom));
+    transform:translateY(100%);
+    transition:transform .32s cubic-bezier(.2,.9,.25,1);
+    box-shadow:var(--shadow-2);
+  }
+  .sheet-backdrop.open .sheet{ transform:translateY(0); }
+  .sheet-handle{
+    width:36px;height:5px;border-radius:3px;
+    background:var(--hair);
+    margin:6px auto 14px;
+  }
+
+  .transfer-row{
+    display:flex; align-items:center; gap:14px;
+    padding:12px 0;
+  }
+  .transfer-row + .transfer-row{ border-top:1px solid var(--hair); }
+  .file-icon{
+    width:42px;height:42px;border-radius:10px;
+    background:rgba(0,113,227,.1);
+    color:var(--blue);
+    display:flex;align-items:center;justify-content:center;
+    font-size:17px;
+    flex-shrink:0;
+  }
+  .file-meta{ flex:1; min-width:0; }
+  .file-name{
+    font-size:14.5px; font-weight:600;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .file-sub{ font-size:12px; color:var(--ink-1); margin-top:1px; }
+  .progress-track{
+    height:4px; border-radius:2px;
+    background:var(--hair);
+    margin-top:7px;
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%; width:0%;
+    background:var(--blue);
+    border-radius:2px;
+    transition:width .15s ease;
+  }
+  .progress-fill.done{ background:var(--green); }
+
+  .accept-actions{ display:flex; gap:8px; }
+  .icon-btn{
+    width:34px;height:34px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    border:none; cursor:pointer; font-size:14px;
+  }
+  .icon-btn.accept{ background:var(--green); color:#fff; }
+  .icon-btn.decline{ background:rgba(0,0,0,.06); color:var(--ink-1); }
+
+  /* ---------- Toast ---------- */
+  .toast{
+    position:fixed; left:50%; bottom:28px;
+    transform:translate(-50%, 20px);
+    background:rgba(29,29,31,.92);
+    color:#fff;
+    padding:11px 18px;
+    border-radius:980px;
+    font-size:13.5px;
+    font-weight:500;
+    opacity:0;
+    transition:opacity .25s ease, transform .25s ease;
+    pointer-events:none;
+    z-index:60;
+    white-space:nowrap;
+  }
+  .toast.show{ opacity:1; transform:translate(-50%,0); }
+
+  footer{
+    text-align:center;
+    padding:18px 0 10px;
+    font-size:11.5px;
+    color:var(--ink-2);
+  }
+
+  ::selection{ background:rgba(0,113,227,.2); }
+
+  @media (prefers-reduced-motion: reduce){
+    .pulse, .peer-chip{ animation:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <header>
+    <h1>AirShare</h1>
+    <p><span id="statusDot" class="status-dot"></span><span id="statusText">Connexion…</span></p>
+  </header>
+
+  <!-- Identity / room -->
+  <div class="card">
+    <div class="field-row">
+      <label for="displayName">Nom</label>
+      <input id="displayName" type="text" maxlength="24" placeholder="Votre nom" />
+    </div>
+    <div class="divider"></div>
+    <div class="room-row">
+      <div class="field-row">
+        <label for="roomName">Salon</label>
+        <input id="roomName" type="text" maxlength="30" placeholder="salon-partagé" />
+      </div>
+      <button id="applyRoomBtn" class="btn btn-ghost">Rejoindre</button>
+    </div>
+  </div>
+
+  <!-- Discovery stage -->
+  <div class="stage idle" id="stage">
+    <div class="radar-ring r3"></div>
+    <div class="radar-ring r2"></div>
+    <div class="radar-ring r1"></div>
+    <div class="pulse" id="pulse"></div>
+    <div class="me-avatar" id="meAvatar">Moi</div>
+    <div class="empty-hint" id="emptyHint">Ouvrez cette page sur un autre appareil, dans le même salon.</div>
+  </div>
+
+  <!-- Drop zone -->
+  <div class="dropzone" id="dropzone">
+    <div class="glyph">⇪</div>
+    <div class="title">Choisir un fichier à envoyer</div>
+    <div class="sub">Glissez-le ici, ou touchez pour parcourir</div>
+    <input type="file" id="fileInput" />
+  </div>
+
+  <footer>Transfert direct pair-à-pair via ApiRTC · rien ne transite par un serveur de stockage</footer>
+</div>
+
+<!-- Transfer sheet -->
+<div class="sheet-backdrop" id="sheetBackdrop">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div id="transferList"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+
+  // =========================================================
+  // CONFIGURATION — votre clé ApiRTC (tenant DEMO test Marceau)
+  // =========================================================
+  const APIRTC_KEY = "b89a4edcb29ecee0684d8db63e356f70";
+  const CLOUD_URL  = "https://cloud.apirtc.com";
+
+  // Découpage des fichiers en chunks base64 (sendData passe par un
+  // canal de signalisation, donc on reste sur des messages raisonnables)
+  const CHUNK_SIZE = 12 * 1024; // ~12KB par chunk avant encodage base64
+
+  // =========================================================
+  // State
+  // =========================================================
+  let userAgent = null;
+  let session = null;
+  let conversation = null;
+  let myContact = null;
+  const peers = new Map();          // contactId -> {contact, name, el}
+  const incomingFiles = new Map();  // transferId -> {meta, chunks:[], received, el}
+  const outgoingFiles = new Map();  // transferId -> {el}
+
+  const el = (id) => document.getElementById(id);
+  const statusDot = el('statusDot');
+  const statusText = el('statusText');
+  const stage = el('stage');
+  const emptyHint = el('emptyHint');
+  const dropzone = el('dropzone');
+  const fileInput = el('fileInput');
+  const displayNameInput = el('displayName');
+  const roomNameInput = el('roomName');
+  const applyRoomBtn = el('applyRoomBtn');
+  const sheetBackdrop = el('sheetBackdrop');
+  const transferList = el('transferList');
+  const toastEl = el('toast');
+  const meAvatar = el('meAvatar');
+
+  function toast(msg, ms){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=> toastEl.classList.remove('show'), ms || 2400);
+  }
+
+  function initials(name){
+    return (name || '?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase() || '?';
+  }
+
+  function randomName(){
+    const adjectives = ['Rapide','Discret','Curieux','Léger','Vif','Calme'];
+    const nouns = ['Renard','Faucon','Lynx','Iris','Cèdre','Comète'];
+    return adjectives[Math.floor(Math.random()*adjectives.length)] + ' ' +
+           nouns[Math.floor(Math.random()*nouns.length)];
+  }
+
+  function defaultRoomFromUrl(){
+    const p = new URLSearchParams(location.search);
+    return p.get('salon') || 'demo-airshare';
+  }
+
+  // =========================================================
+  // Boot
+  // =========================================================
+  displayNameInput.value = localStorage.getItem('airshare_name') || randomName();
+  roomNameInput.value = defaultRoomFromUrl();
+  meAvatar.textContent = initials(displayNameInput.value);
+
+  displayNameInput.addEventListener('change', () => {
+    localStorage.setItem('airshare_name', displayNameInput.value);
+    meAvatar.textContent = initials(displayNameInput.value);
+    if (myContact && myContact.getUserData) updateUserData();
+  });
+
+  applyRoomBtn.addEventListener('click', () => {
+    const params = new URLSearchParams(location.search);
+    params.set('salon', roomNameInput.value.trim() || 'demo-airshare');
+    history.replaceState(null, '', '?' + params.toString());
+    joinRoom(roomNameInput.value.trim() || 'demo-airshare');
+  });
+
+  function setStatus(text, online){
+    statusText.textContent = text;
+    statusDot.classList.toggle('online', !!online);
+  }
+
+  function refreshEmptyHint(){
+    emptyHint.style.display = peers.size ? 'none' : 'block';
+    stage.classList.toggle('idle', peers.size === 0);
+  }
+
+  // =========================================================
+  // ApiRTC connection
+  // =========================================================
+  function connect(){
+    if (typeof apiRTC === 'undefined'){
+      setStatus('SDK ApiRTC introuvable', false);
+      toast("Impossible de charger le SDK ApiRTC (vérifiez la connexion réseau)");
+      return;
+    }
+
+    userAgent = new apiRTC.UserAgent({ uri: 'apzkey:' + APIRTC_KEY });
+
+    userAgent.register({ cloudUrl: CLOUD_URL })
+      .then((s) => {
+        session = s;
+        setStatus('Connecté', true);
+        joinRoom(roomNameInput.value.trim() || 'demo-airshare');
+      })
+      .catch((err) => {
+        console.error('register error', err);
+        setStatus('Connexion impossible', false);
+        toast("Échec de connexion à ApiRTC — vérifiez la clé API");
+      });
+  }
+
+  function joinRoom(roomName){
+    if (!session) return;
+
+    // Quitter le salon précédent proprement
+    if (conversation){
+      conversation.leave().catch(()=>{});
+      conversation.destroy();
+      peers.clear();
+      renderPeers();
+    }
+
+    setStatus('Rejoint le salon…', true);
+
+    conversation = session.getOrCreateConversation(roomName, {
+      meshModeEnabled: true
+    });
+
+    conversation.on('streamListChanged', () => {}); // pas de flux média ici
+
+    conversation.on('contactListUpdate', (updated) => {
+      for (const group of Object.keys(updated.joinedGroup || {})){
+        for (const contact of updated.joinedGroup[group]){
+          addPeer(contact);
+        }
+      }
+      for (const group of Object.keys(updated.leftGroup || {})){
+        for (const contact of updated.leftGroup[group]){
+          removePeer(contact);
+        }
+      }
+    });
+
+    session.on('contactData', (evt) => {
+      handleIncoming(evt.sender, evt.content);
+    });
+
+    conversation.join()
+      .then(() => {
+        myContact = session.getUserAgent ? session.getUserAgent() : null;
+        setStatus('En attente d’appareils à proximité', true);
+        toast('Salon rejoint : ' + roomName);
+      })
+      .catch((err) => {
+        console.error('join error', err);
+        setStatus('Impossible de rejoindre le salon', false);
+      });
+  }
+
+  function updateUserData(){
+    try{
+      const ud = userAgent.getUserData ? userAgent.getUserData() : null;
+      if (ud && ud.setProp){
+        ud.setProp('displayName', displayNameInput.value);
+        ud.setToSession();
+      }
+    }catch(e){ /* best effort */ }
+  }
+
+  // =========================================================
+  // Peers rendering (radar bubbles)
+  // =========================================================
+  function positionForIndex(i, total){
+    // dispose les pairs en cercle autour du "Moi"
+    const angle = (i / Math.max(total,1)) * Math.PI * 2 - Math.PI/2;
+    const radius = 40; // % du stage
+    const x = 50 + radius * Math.cos(angle);
+    const y = 50 + radius * Math.sin(angle);
+    return { left: x + '%', top: y + '%' };
+  }
+
+  function addPeer(contact){
+    const id = contact.getId ? contact.getId() : contact.id;
+    if (!id || peers.has(id)) return;
+
+    let name = 'Appareil';
+    try{
+      const ud = contact.getUserData && contact.getUserData();
+      if (ud && ud.getProp) name = ud.getProp('displayName') || name;
+    }catch(e){}
+
+    const chip = document.createElement('button');
+    chip.className = 'peer-chip';
+    chip.innerHTML = `<div class="bubble">${initials(name)}</div><div class="label">${escapeHtml(name)}</div>`;
+    chip.addEventListener('click', () => promptSendTo(id));
+
+    stage.appendChild(chip);
+    peers.set(id, { contact, name, el: chip });
+    renderPeers();
+    toast(name + ' est à proximité');
+  }
+
+  function removePeer(contact){
+    const id = contact.getId ? contact.getId() : contact.id;
+    const p = peers.get(id);
+    if (p){
+      p.el.remove();
+      peers.delete(id);
+      renderPeers();
+    }
+  }
+
+  function renderPeers(){
+    const list = Array.from(peers.values());
+    list.forEach((p, i) => {
+      const pos = positionForIndex(i, list.length);
+      p.el.style.left = pos.left;
+      p.el.style.top = pos.top;
+      p.el.style.transform = 'translate(-50%, -50%)';
+      p.el.style.position = 'absolute';
+    });
+    refreshEmptyHint();
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // =========================================================
+  // File sending
+  // =========================================================
+  let pendingFile = null;
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  ['dragenter','dragover'].forEach(evt =>
+    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(evt =>
+    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
+  dropzone.addEventListener('drop', (e) => {
+    const f = e.dataTransfer.files[0];
+    if (f) selectFile(f);
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) selectFile(fileInput.files[0]);
+  });
+
+  function selectFile(file){
+    pendingFile = file;
+    if (peers.size === 1){
+      // un seul appareil détecté : envoi direct
+      const onlyId = Array.from(peers.keys())[0];
+      sendFileTo(onlyId, file);
+      pendingFile = null;
+    } else if (peers.size > 1){
+      toast('Touchez un appareil pour lui envoyer « ' + file.name + ' »');
+    } else {
+      toast('Aucun appareil à proximité pour le moment');
+    }
+  }
+
+  function promptSendTo(contactId){
+    if (!pendingFile){
+      toast('Choisissez d’abord un fichier à envoyer');
+      return;
+    }
+    sendFileTo(contactId, pendingFile);
+    pendingFile = null;
+  }
+
+  function sendFileTo(contactId, file){
+    const peer = peers.get(contactId);
+    if (!peer) return;
+
+    const transferId = 'tx-' + Math.random().toString(36).slice(2, 10);
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+    openSheet();
+    const row = createTransferRow({
+      transferId,
+      name: file.name,
+      size: file.size,
+      direction: 'out',
+      peerName: peer.name
+    });
+    outgoingFiles.set(transferId, { el: row });
+
+    // 1) message d'annonce
+    peer.contact.sendData({
+      airshare: 'meta',
+      transferId,
+      name: file.name,
+      size: file.size,
+      mime: file.type || 'application/octet-stream',
+      totalChunks
+    }).catch(err => console.error('sendData meta error', err));
+
+    // 2) découpage et envoi séquentiel des chunks en base64
+    const reader = new FileReader();
+    let offset = 0;
+    let chunkIndex = 0;
+
+    function readNext(){
+      const slice = file.slice(offset, offset + CHUNK_SIZE);
+      reader.readAsDataURL(slice);
+    }
+
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1] || '';
+      peer.contact.sendData({
+        airshare: 'chunk',
+        transferId,
+        index: chunkIndex,
+        data: base64
+      }).then(() => {
+        chunkIndex++;
+        offset += CHUNK_SIZE;
+        updateProgress(row, Math.min(100, Math.round((offset / file.size) * 100)));
+
+        if (offset < file.size){
+          readNext();
+        } else {
+          peer.contact.sendData({ airshare: 'done', transferId }).catch(()=>{});
+          markDone(row);
+        }
+      }).catch(err => {
+        console.error('sendData chunk error', err);
+        toast('Échec de l’envoi à ' + peer.name);
+      });
+    };
+
+    readNext();
+  }
+
+  // =========================================================
+  // File receiving
+  // =========================================================
+  function handleIncoming(sender, content){
+    if (!content || !content.airshare) return;
+
+    let senderName = 'Appareil';
+    try{
+      const id = sender.getId ? sender.getId() : sender.id;
+      const p = peers.get(id);
+      if (p) senderName = p.name;
+    }catch(e){}
+
+    if (content.airshare === 'meta'){
+      openSheet();
+      const row = createTransferRow({
+        transferId: content.transferId,
+        name: content.name,
+        size: content.size,
+        direction: 'in-pending',
+        peerName: senderName
+      }, sender);
+      incomingFiles.set(content.transferId, {
+        meta: content, chunks: new Array(content.totalChunks), received: 0, el: row, sender
+      });
+    }
+
+    if (content.airshare === 'chunk'){
+      const t = incomingFiles.get(content.transferId);
+      if (!t || t.declined) return;
+      t.chunks[content.index] = content.data;
+      t.received++;
+      const pct = Math.round((t.received / t.meta.totalChunks) * 100);
+      updateProgress(t.el, pct);
+    }
+
+    if (content.airshare === 'done'){
+      const t = incomingFiles.get(content.transferId);
+      if (!t || t.declined) return;
+      finalizeIncoming(content.transferId);
+    }
+  }
+
+  function finalizeIncoming(transferId){
+    const t = incomingFiles.get(transferId);
+    if (!t) return;
+    const base64 = t.chunks.join('');
+    const link = document.createElement('a');
+    link.href = 'data:' + (t.meta.mime || 'application/octet-stream') + ';base64,' + base64;
+    link.download = t.meta.name;
+    markDone(t.el, link);
+    toast('« ' + t.meta.name + ' » reçu');
+  }
+
+  // =========================================================
+  // Transfer sheet UI
+  // =========================================================
+  function openSheet(){ sheetBackdrop.classList.add('open'); }
+  sheetBackdrop.addEventListener('click', (e) => {
+    if (e.target === sheetBackdrop) sheetBackdrop.classList.remove('open');
+  });
+
+  function humanSize(bytes){
+    if (bytes < 1024) return bytes + ' o';
+    if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' Ko';
+    return (bytes/1024/1024).toFixed(1) + ' Mo';
+  }
+
+  function createTransferRow({ transferId, name, size, direction, peerName }, sender){
+    const row = document.createElement('div');
+    row.className = 'transfer-row';
+    row.dataset.transferId = transferId;
+
+    const acceptActions = direction === 'in-pending'
+      ? `<div class="accept-actions">
+           <button class="icon-btn decline" title="Refuser">✕</button>
+           <button class="icon-btn accept" title="Accepter">✓</button>
+         </div>`
+      : '';
+
+    row.innerHTML = `
+      <div class="file-icon">📄</div>
+      <div class="file-meta">
+        <div class="file-name">${escapeHtml(name)}</div>
+        <div class="file-sub">${direction === 'out' ? 'Envoi à ' : 'Reçu de '} ${escapeHtml(peerName)} · ${humanSize(size)}</div>
+        <div class="progress-track"><div class="progress-fill"></div></div>
+      </div>
+      ${acceptActions}
+    `;
+    transferList.appendChild(row);
+
+    if (direction === 'in-pending'){
+      const declineBtn = row.querySelector('.decline');
+      const acceptBtn = row.querySelector('.accept');
+      declineBtn.addEventListener('click', () => {
+        const t = incomingFiles.get(transferId);
+        if (t) t.declined = true;
+        row.querySelector('.file-sub').textContent = 'Refusé';
+        row.querySelector('.accept-actions').remove();
+      });
+      acceptBtn.addEventListener('click', () => {
+        row.querySelector('.accept-actions').remove();
+      });
+    }
+
+    return row;
+  }
+
+  function updateProgress(row, pct){
+    const fill = row.querySelector('.progress-fill');
+    if (fill) fill.style.width = pct + '%';
+  }
+
+  function markDone(row, downloadLink){
+    const fill = row.querySelector('.progress-fill');
+    if (fill){ fill.style.width = '100%'; fill.classList.add('done'); }
+    const sub = row.querySelector('.file-sub');
+    if (downloadLink){
+      sub.innerHTML = '';
+      sub.appendChild(downloadLink);
+      downloadLink.textContent = 'Terminé — toucher pour enregistrer';
+      downloadLink.style.color = 'var(--blue)';
+      downloadLink.style.fontWeight = '600';
+      downloadLink.style.textDecoration = 'none';
+    } else if (sub){
+      sub.textContent = sub.textContent.replace(/\s·.*/, '') + ' · Terminé';
+    }
+  }
+
+  // =========================================================
+  // Go
+  // =========================================================
+  connect();
+
+})();
+</script>
+</body>
+</html>
